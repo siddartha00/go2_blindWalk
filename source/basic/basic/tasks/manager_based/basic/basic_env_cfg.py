@@ -168,13 +168,6 @@ class ObservationsCfg:
             func=mdp.height_scan,
             params={"sensor_cfg": SceneEntityCfg("height_scanner"), "offset": 0.5},
         )
-        foot_contact_forces = ObsTerm(
-            func=mdp.contact_forces,
-            params={
-                "sensor_cfg": SceneEntityCfg("foot_contacts"),
-                'threshold': 50.0
-            },
-        )
 
         # IMU-derived measurements (can overlap with base_* terms; useful if you want teacher)
         imu_lin_acc = ObsTerm(
@@ -190,7 +183,7 @@ class ObservationsCfg:
 
         def __post_init__(self) -> None:
             self.enable_corruption = False
-            self.concatenate_terms = False
+            self.concatenate_terms = True
 
     # observation groups
     policy: PolicyCfg = PolicyCfg()
