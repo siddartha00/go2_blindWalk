@@ -35,3 +35,16 @@ def feet_air_time(env: ManagerBasedRLEnv, threshold: float, sensor_cfg: SceneEnt
     reward = torch.sum((last_air_time - threshold)*first_contact, dim=1)
     reward *= torch.norm(env.command_manager.get_command(command_name)[:,:2], dim=1) > 0.1
     return reward
+
+
+def base_height(env: ManagerBasedRLEnv, threshold: float, sensor_cfg: SceneEntityCfg) -> torch.Tensor:
+    height_scanner: RayCaster = env.scene.sensors[sensor_cfg.name]
+    height_scan = torch.mean(height_scanner.data.ray_hits_w[...,2], dim=-1)
+    base_z = env.scene["robot"].data.root_pos_w[:,2]
+    relative_height = base_z - height_scan
+    reward = torch.where(
+        relative_height < threshold,
+        -2.0*(threshold - relative_height),
+        0.1
+    )
+    return reward

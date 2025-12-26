@@ -87,7 +87,7 @@ class MixedTerrainSceneCfg(InteractiveSceneCfg):
         offset=RayCasterCfg.OffsetCfg(pos=(0.0, 0.0, 20.0)),
         pattern_cfg=patterns.GridPatternCfg(resolution=0.1, size=[1.6,1.0]),
         ray_alignment="yaw",
-        debug_vis=False,
+        debug_vis=True,
         mesh_prim_paths=["/World/ground"]
     )
 
@@ -319,6 +319,14 @@ class RewardsCfg:
         func=mdp.undesired_contacts,
         weight=-1.0,
         params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*thigh"), "threshold": 1.0},
+    )
+    base_height = RewTerm(
+        func=mdp.base_height,           # this function
+        weight=1.0,
+        params={
+            "sensor_cfg": SceneEntityCfg("height_scanner"),
+            "threshold": 0.3,
+        },
     )
 
     # -- optional penalties
