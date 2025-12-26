@@ -305,7 +305,7 @@ class RewardsCfg:
     lin_vel_z_l2 = RewTerm(func=mdp.lin_vel_z_l2, weight=-1.0)
     ang_vel_xy_l2 = RewTerm(func=mdp.ang_vel_xy_l2, weight=-0.05)
     dof_torques_l2 = RewTerm(func=mdp.joint_torques_l2, weight=-1.0e-5)
-    dof_acc_l2 = RewTerm(func=mdp.joint_acc_l2, weight=-2.5e-7)
+    dof_acc_l2 = RewTerm(func=mdp.joint_acc_l2, weight=-2.5e-9)
     action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.05)
     feet_air_time = RewTerm(
         func=mdp.feet_air_time,
@@ -320,7 +320,7 @@ class RewardsCfg:
         func=mdp.undesired_contacts,
         weight=-1.0,
         params={
-            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*thigh"),
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=[".*thigh",".*calf"]),
             "threshold": 1.0
         },
     )
