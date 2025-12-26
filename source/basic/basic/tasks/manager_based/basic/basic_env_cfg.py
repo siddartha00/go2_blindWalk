@@ -51,8 +51,8 @@ TERRAIN_CONFIG = TerrainGeneratorCfg(
         ),
         "stairs": terrain_gen.MeshPyramidStairsTerrainCfg(
             proportion=0.3,
-            step_height_range=(0.05, 0.5),
-            step_width=0.4,
+            step_height_range=(0.075, 0.1),
+            step_width=0.2,
             platform_width=4.0,
         )
     },
@@ -319,7 +319,10 @@ class RewardsCfg:
     undesired_contacts = RewTerm(
         func=mdp.undesired_contacts,
         weight=-1.0,
-        params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*thigh"), "threshold": 1.0},
+        params={
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*thigh"),
+            "threshold": 1.0
+        },
     )
     base_height = RewTerm(
         func=mdp.base_height,
@@ -328,6 +331,13 @@ class RewardsCfg:
             "sensor_cfg": SceneEntityCfg("height_scanner"),
             "threshold": 0.3,
         },
+    )
+    joint_devation = RewTerm(
+        func=mdp.joint_deviation_l1,
+        weight=-0.1,
+        params={
+            "asset_cfg": SceneEntityCfg("robot", joint_names=[".*"])
+        }
     )
     flat_orientation_l2 = RewTerm(func=mdp.flat_orientation_l2, weight=0.05)
 
