@@ -322,16 +322,16 @@ class RewardsCfg:
         params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*thigh"), "threshold": 1.0},
     )
     base_height = RewTerm(
-        func=mdp.base_height,           # this function
+        func=mdp.base_height,
         weight=1.0,
         params={
             "sensor_cfg": SceneEntityCfg("height_scanner"),
             "threshold": 0.3,
         },
     )
-
-    # -- optional penalties
     flat_orientation_l2 = RewTerm(func=mdp.flat_orientation_l2, weight=0.05)
+
+    # -- Penalty for moving out of joint limit bounds.
     dof_pos_limits = RewTerm(func=mdp.joint_pos_limits, weight=0.05)
 
 
