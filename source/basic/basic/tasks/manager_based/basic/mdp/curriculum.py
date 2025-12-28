@@ -21,5 +21,8 @@ def terrain_levels_vel(
     move_down *= ~move_up
     # update terrain levels
     terrain.update_env_origins(env_ids, move_up, move_down)
+    current_levels = terrain.terrain_levels.float()
+    if hasattr(env, "extras"):
+        env.extras["Histograms/TerrainLevel"] = current_levels
     # return the mean terrain level
     return torch.mean(terrain.terrain_levels.float())

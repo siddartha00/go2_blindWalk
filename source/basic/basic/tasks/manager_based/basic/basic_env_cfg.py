@@ -49,12 +49,18 @@ TERRAIN_CONFIG = TerrainGeneratorCfg(
             noise_step=0.01,
             downsampled_scale=0.5
         ),
-        "stairs": terrain_gen.MeshPyramidStairsTerrainCfg(
-            proportion=0.3,
-            step_height_range=(0.075, 0.1),
+        "stairs_up": terrain_gen.MeshInvertedPyramidStairsTerrainCfg(
+            proportion=0.15,
+            step_height_range=(0.04, 0.1),
+            step_width=0.2,
+            platform_width=1.0,
+        ),
+        "stairs_down": terrain_gen.MeshPyramidStairsTerrainCfg(
+            proportion=0.15,
+            step_height_range=(0.04, 0.1),
             step_width=0.2,
             platform_width=4.0,
-        )
+        ),
     },
 )
 
@@ -305,8 +311,8 @@ class RewardsCfg:
     lin_vel_z_l2 = RewTerm(func=mdp.lin_vel_z_l2, weight=-1.0)
     ang_vel_xy_l2 = RewTerm(func=mdp.ang_vel_xy_l2, weight=-0.05)
     dof_torques_l2 = RewTerm(func=mdp.joint_torques_l2, weight=-1.0e-5)
-    dof_acc_l2 = RewTerm(func=mdp.joint_acc_l2, weight=-2.5e-9)
-    action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.05)
+    dof_acc_l2 = RewTerm(func=mdp.joint_acc_l2, weight=-2.5e-10)
+    action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.005)
     feet_air_time = RewTerm(
         func=mdp.feet_air_time,
         weight=0.25,
@@ -339,7 +345,7 @@ class RewardsCfg:
             "asset_cfg": SceneEntityCfg("robot", joint_names=[".*"])
         }
     )
-    flat_orientation_l2 = RewTerm(func=mdp.flat_orientation_l2, weight=0.05)
+    flat_orientation_l2 = RewTerm(func=mdp.flat_orientation_l2, weight=0.0005)
 
     # -- Penalty for moving out of joint limit bounds.
     dof_pos_limits = RewTerm(func=mdp.joint_pos_limits, weight=0.05)
@@ -390,6 +396,7 @@ class MixedTerrainGo2EnvCfg(ManagerBasedRLEnvCfg):
     rewards: RewardsCfg = RewardsCfg()
     terminations: TerminationsCfg = TerminationsCfg()
     events: EventCfg = EventCfg()
+    curriculum: CurriculumCfg = CurriculumCfg()
 
     # Post initialization
     def __post_init__(self) -> None:
