@@ -42,21 +42,21 @@ TERRAIN_CONFIG = TerrainGeneratorCfg(
     num_rows=10,
     curriculum=False,
     sub_terrains={
-        "plane": terrain_gen.MeshPlaneTerrainCfg(proportion=0.3),
+        "plane": terrain_gen.MeshPlaneTerrainCfg(proportion=0.15),
         "rough": terrain_gen.HfRandomUniformTerrainCfg(
-            proportion=0.2,
+            proportion=0.15,
             noise_range=(0.0,0.05),
             noise_step=0.01,
             downsampled_scale=0.5
         ),
         "stairs_up": terrain_gen.MeshInvertedPyramidStairsTerrainCfg(
-            proportion=0.15,
+            proportion=0.45,
             step_height_range=(0.04, 0.1),
             step_width=0.2,
             platform_width=1.0,
         ),
         "stairs_down": terrain_gen.MeshPyramidStairsTerrainCfg(
-            proportion=0.15,
+            proportion=0.25,
             step_height_range=(0.04, 0.1),
             step_width=0.2,
             platform_width=4.0,
@@ -319,7 +319,7 @@ class RewardsCfg:
         params={
             "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*foot"),
             "command_name": "base_velocity",
-            "threshold": 0.25,
+            "threshold": 0.4,
         },
     )
     undesired_contacts = RewTerm(
