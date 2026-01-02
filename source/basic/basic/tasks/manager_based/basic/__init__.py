@@ -21,3 +21,13 @@ gym.register(
         "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:MixedTerrainGo2PPORunnerCfg",
     },
 )
+
+gym.register(
+    id="Template-Go2-Blind-Walk-v0",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.blind_walk_env_cfg:Go2BlindWalkEnvCfg",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.blind_walk_policy_cfg:Go2BlindWalkPPORunnerCfg"
+    }
+)
