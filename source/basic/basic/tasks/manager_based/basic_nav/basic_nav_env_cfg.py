@@ -34,8 +34,10 @@ from isaaclab_assets.robots.unitree import UNITREE_GO2_CFG  # isort:skip
 # Low-level model imports
 ##
 
-from ..basic.blind_walk_env_cfg import Go2BlindWalkEnvCfg as LOW_LEVEL_ENV_CFG
+from ..basic.blind_walk_env_cfg import Go2BlindWalkEnvCfg
 from ..basic.basic_env_cfg import TERRAIN_CONFIG
+
+LOW_LEVEL_ENV_CFG = Go2BlindWalkEnvCfg()
 
 ##
 # Scene definition
