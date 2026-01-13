@@ -15,6 +15,10 @@ from isaaclab.managers import RewardTermCfg as RewTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.managers import TerminationTermCfg as DoneTerm
 from isaaclab.scene import InteractiveSceneCfg
+from isaaclab.terrains import TerrainImporterCfg
+from isaaclab.sensors.ray_caster import patterns, RayCasterCfg
+from isaaclab.sensors.imu import ImuCfg
+from isaaclab.sensors.contact_sensor import ContactSensorCfg
 from isaaclab.utils import configclass
 
 from . import mdp
@@ -23,8 +27,15 @@ from . import mdp
 # Pre-defined configs
 ##
 
-from isaaclab_assets.robots.cartpole import CARTPOLE_CFG  # isort:skip
+from isaaclab_assets.robots.unitree import UNITREE_GO2_CFG  # isort:skip
 
+
+##
+# Low-level model imports
+##
+
+from ..basic.blind_walk_env_cfg import Go2BlindWalkEnvCfg as LOW_LEVEL_ENV_CFG
+from ..basic.basic_env_cfg import TERRAIN_CONFIG
 
 ##
 # Scene definition
@@ -32,17 +43,48 @@ from isaaclab_assets.robots.cartpole import CARTPOLE_CFG  # isort:skip
 
 
 @configclass
-class TempSceneCfg(InteractiveSceneCfg):
-    """Configuration for a cart-pole scene."""
+class MixedTerrainSceneCfg(InteractiveSceneCfg):
+    """Go2 mixed-mesh terrain locomotion scene."""
 
     # ground plane
-    ground = AssetBaseCfg(
-        prim_path="/World/ground",
-        spawn=sim_utils.GroundPlaneCfg(size=(100.0, 100.0)),
+    terrain: TerrainImporterCfg = TerrainImporterCfg(
+        prim_path='/World/ground',
+        terrain_generator=TERRAIN_CONFIG,
+        collision_group=-1,
+        physics_material=sim_utils.RigidBodyMaterialCfg(
+            friction_combine_mode="multiply",
+            restitution_combine_mode="multiply",
+            static_friction=1.0,
+            dynamic_friction=1.0,
+        ),
+        debug_vis=False
     )
 
     # robot
-    robot: ArticulationCfg = CARTPOLE_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
+    # robot: ArticulationCfg = CARTPOLE_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
+    robot: ArticulationCfg = UNITREE_GO2_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
+
+    height_scanner = RayCasterCfg(
+        prim_path="{ENV_REGEX_NS}/Robot/base",
+        offset=RayCasterCfg.OffsetCfg(pos=(0.0, 0.0, 20.0)),
+        pattern_cfg=patterns.GridPatternCfg(resolution=0.1, size=[1.6,1.0]),
+        ray_alignment="yaw",
+        debug_vis=True,
+        mesh_prim_paths=["/World/ground"]
+    )
+
+    imu = ImuCfg(
+        prim_path="{ENV_REGEX_NS}/Robot/base/imu",
+        history_length=20,
+        update_period=0.01,
+        debug_vis=True,
+    )
+
+    contact_forces = ContactSensorCfg(
+        prim_path="{ENV_REGEX_NS}/Robot/.*",
+        history_length=3,
+        track_air_time=True,
+    )
 
     # lights
     dome_light = AssetBaseCfg(
@@ -58,9 +100,15 @@ class TempSceneCfg(InteractiveSceneCfg):
 
 @configclass
 class ActionsCfg:
-    """Action specifications for the MDP."""
+    """Action terms for the MDP."""
 
-    joint_effort = mdp.JointEffortActionCfg(asset_name="robot", joint_names=["slider_to_cart"], scale=100.0)
+    pre_trained_policy_action: mdp.PreTrainedPolicyActionCfg = mdp.PreTrainedPolicyActionCfg(
+        asset_name="robot",
+        policy_path=f"logs/rsl_rl/go2_blind_walk/2026-01-10_22-31-18/exported/policy.pt",
+        low_level_decimation=4,
+        low_level_actions=LOW_LEVEL_ENV_CFG.actions.joint_pos,
+        low_level_observations=LOW_LEVEL_ENV_CFG.observations.policy,
+    )
 
 
 @configclass
@@ -72,8 +120,9 @@ class ObservationsCfg:
         """Observations for policy group."""
 
         # observation terms (order preserved)
-        joint_pos_rel = ObsTerm(func=mdp.joint_pos_rel)
-        joint_vel_rel = ObsTerm(func=mdp.joint_vel_rel)
+        base_lin_vel = ObsTerm(func=mdp.base_lin_vel)
+        projected_gravity = ObsTerm(func=mdp.projected_gravity)
+        pose_command = ObsTerm(func=mdp.generated_commands, params={"command_name": "pose_command"})
 
         def __post_init__(self) -> None:
             self.enable_corruption = False
@@ -113,27 +162,34 @@ class EventCfg:
 class RewardsCfg:
     """Reward terms for the MDP."""
 
-    # (1) Constant running reward
-    alive = RewTerm(func=mdp.is_alive, weight=1.0)
-    # (2) Failure penalty
-    terminating = RewTerm(func=mdp.is_terminated, weight=-2.0)
-    # (3) Primary task: keep pole upright
-    pole_pos = RewTerm(
-        func=mdp.joint_pos_target_l2,
-        weight=-1.0,
-        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["cart_to_pole"]), "target": 0.0},
+    termination_penalty = RewTerm(func=mdp.is_terminated, weight=-400.0)
+    position_tracking = RewTerm(
+        func=mdp.position_command_error_tanh,
+        weight=0.5,
+        params={"std": 2.0, "command_name": "pose_command"},
     )
-    # (4) Shaping tasks: lower cart velocity
-    cart_vel = RewTerm(
-        func=mdp.joint_vel_l1,
-        weight=-0.01,
-        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["slider_to_cart"])},
+    position_tracking_fine_grained = RewTerm(
+        func=mdp.position_command_error_tanh,
+        weight=0.5,
+        params={"std": 0.2, "command_name": "pose_command"},
     )
-    # (5) Shaping tasks: lower pole angular velocity
-    pole_vel = RewTerm(
-        func=mdp.joint_vel_l1,
-        weight=-0.005,
-        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["cart_to_pole"])},
+    orientation_tracking = RewTerm(
+        func=mdp.heading_command_error_abs,
+        weight=-0.2,
+        params={"command_name": "pose_command"},
+    )
+
+
+@configclass
+class CommandsCfg:
+    """Command terms for the MDP."""
+
+    pose_command = mdp.UniformPose2dCommandCfg(
+        asset_name="robot",
+        simple_heading=False,
+        resampling_time_range=(8.0, 8.0),
+        debug_vis=True,
+        ranges=mdp.UniformPose2dCommandCfg.Ranges(pos_x=(-3.0, 3.0), pos_y=(-3.0, 3.0), heading=(-math.pi, math.pi)),
     )
 
 
@@ -141,12 +197,10 @@ class RewardsCfg:
 class TerminationsCfg:
     """Termination terms for the MDP."""
 
-    # (1) Time out
     time_out = DoneTerm(func=mdp.time_out, time_out=True)
-    # (2) Cart out of bounds
-    cart_out_of_bounds = DoneTerm(
-        func=mdp.joint_pos_out_of_manual_limit,
-        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["slider_to_cart"]), "bounds": (-3.0, 3.0)},
+    base_contact = DoneTerm(
+        func=mdp.illegal_contact,
+        params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names="base"), "threshold": 1.0},
     )
 
 
@@ -158,11 +212,12 @@ class TerminationsCfg:
 @configclass
 class ObstacleNavEnvCfg(ManagerBasedRLEnvCfg):
     # Scene settings
-    scene: TempSceneCfg = TempSceneCfg(num_envs=4096, env_spacing=4.0)
+    scene: MixedTerrainSceneCfg = MixedTerrainSceneCfg(num_envs=1024, env_spacing=4.0)
     # Basic settings
     observations: ObservationsCfg = ObservationsCfg()
     actions: ActionsCfg = ActionsCfg()
     events: EventCfg = EventCfg()
+    commands: CommandsCfg = CommandsCfg()
     # MDP settings
     rewards: RewardsCfg = RewardsCfg()
     terminations: TerminationsCfg = TerminationsCfg()
@@ -171,10 +226,14 @@ class ObstacleNavEnvCfg(ManagerBasedRLEnvCfg):
     def __post_init__(self) -> None:
         """Post initialization."""
         # general settings
-        self.decimation = 2
-        self.episode_length_s = 5
-        # viewer settings
-        self.viewer.eye = (8.0, 0.0, 5.0)
-        # simulation settings
-        self.sim.dt = 1 / 120
-        self.sim.render_interval = self.decimation
+        self.sim.dt = LOW_LEVEL_ENV_CFG.sim.dt
+        self.sim.render_interval = LOW_LEVEL_ENV_CFG.decimation
+        self.decimation = LOW_LEVEL_ENV_CFG.decimation * 10
+        self.episode_length_s = self.commands.pose_command.resampling_time_range[1]
+
+        if self.scene.height_scanner is not None:
+            self.scene.height_scanner.update_period = (
+                self.actions.pre_trained_policy_action.low_level_decimation * self.sim.dt
+            )
+        if self.scene.contact_forces is not None:
+            self.scene.contact_forces.update_period = self.sim.dt
