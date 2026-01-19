@@ -9,6 +9,7 @@ import isaaclab.sim as sim_utils
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
+from isaaclab.managers import RewardTermCfg as RewTerm
 from isaaclab.envs import ManagerBasedRLEnvCfg
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg
 from isaaclab_assets.robots.unitree import UNITREE_GO2_CFG
@@ -19,6 +20,8 @@ from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.terrains import TerrainImporterCfg
 from isaaclab.utils.noise import AdditiveUniformNoiseCfg as UNoise
 from isaaclab.utils import configclass
+from isaaclab.envs.mdp import UniformPose2dCommandCfg, UniformPose2dCommand
+import math
 from . import mdp
 
 
@@ -74,6 +77,27 @@ class MixedTerrainSceneCfg(InteractiveSceneCfg):
 
 
 @configclass
+class CommandCfg:
+    "Commands specification for MDP"
+    target_waypoint = UniformPose2dCommandCfg(
+        asset_name='robot',
+        simple_heading=True,
+        resampling_time_range=(5.0,10.0),
+        debug_vis=True,
+        ranges=UniformPose2dCommandCfg.Ranges(
+            pos_x=(-5.0, 5.0),
+            pos_y=(-5.0, 5.0),
+            heading=(-3.14, 3.14)
+        ),
+    )
+    """Configuration for the 2D-waypoint command generator.
+    
+    This term generates random (x, y) target positions and headings within a 
+    10m x 10m square around the environment origin. It is used to train 
+    navigation and obstacle avoidance policies.
+    """
+
+@configclass
 class ObservationsCfg:
     """Observation specifications for the MDP."""
 
@@ -110,9 +134,9 @@ class ObservationsCfg:
             noise=UNoise(n_min=-1.5, n_max=1.5)
         )
 
-        velocity_command = ObsTerm(
+        pose_command = ObsTerm(
             func=mdp.generated_commands,
-            params={"command_name": "base_velocity"}
+            params={'command_name':'target_waypoint'}
         )
 
         actions = ObsTerm(
@@ -170,6 +194,62 @@ class ObservationsCfg:
     # observation groups
     policy: PolicyCfg = PolicyCfg()
     critic: CriticCfg = CriticCfg()
+
+
+@configclass
+class RewardsCfg:
+    """Reward terms for the MDP."""
+
+    # -- Reward to go at the given velocity
+    track_lin_vel_xy_exp = RewTerm(
+        func=mdp.track_lin_vel_xy_exp, weight=2.0, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
+    )
+    track_ang_vel_z_exp = RewTerm(
+        func=mdp.track_ang_vel_z_exp, weight=0.5, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
+    )
+
+    # -- Penalties to maintain a smooth gait
+    lin_vel_z_l2 = RewTerm(func=mdp.lin_vel_z_l2, weight=-1.0)
+    ang_vel_xy_l2 = RewTerm(func=mdp.ang_vel_xy_l2, weight=-0.05)
+    dof_torques_l2 = RewTerm(func=mdp.joint_torques_l2, weight=-1.0e-5)
+    dof_acc_l2 = RewTerm(func=mdp.joint_acc_l2, weight=-2.5e-10)
+    action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.005)
+    feet_air_time = RewTerm(
+        func=mdp.feet_air_time,
+        weight=0.25,
+        params={
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*foot"),
+            "command_name": "base_velocity",
+            "threshold": 0.4,
+        },
+    )
+    undesired_contacts = RewTerm(
+        func=mdp.undesired_contacts,
+        weight=-1.0,
+        params={
+            "sensor_cfg": SceneEntityCfg("contact_forces", body_names=[".*thigh",".*calf"]),
+            "threshold": 1.0
+        },
+    )
+    base_height = RewTerm(
+        func=mdp.base_height,
+        weight=1.0,
+        params={
+            "sensor_cfg": SceneEntityCfg("height_scanner"),
+            "threshold": 0.3,
+        },
+    )
+    joint_devation = RewTerm(
+        func=mdp.joint_deviation_l1,
+        weight=-0.1,
+        params={
+            "asset_cfg": SceneEntityCfg("robot", joint_names=[".*"])
+        }
+    )
+    flat_orientation_l2 = RewTerm(func=mdp.flat_orientation_l2, weight=0.0005)
+
+    # -- Penalty for moving out of joint limit bounds.
+    dof_pos_limits = RewTerm(func=mdp.joint_pos_limits, weight=0.05)
 
 
 @configclass
