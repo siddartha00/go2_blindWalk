@@ -41,6 +41,7 @@ docker/.container.cfg
 **/videos/*
 **/wandb/*
 **/.neptune/*
+**/policies/*
 docker/artifacts/
 *.tmp
 
