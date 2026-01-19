@@ -167,7 +167,7 @@ class RewardsCfg:
     )
     position_tracking_fine_grained = RewTerm(
         func=mdp.position_command_error_tanh,
-        weight=0.5,
+        weight=2.0,
         params={"std": 0.2, "command_name": "pose_command"},
     )
     orientation_tracking = RewTerm(
