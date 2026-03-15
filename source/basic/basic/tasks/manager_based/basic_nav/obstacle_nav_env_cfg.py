@@ -6,7 +6,8 @@
 import math
 
 import isaaclab.sim as sim_utils
-from isaaclab.assets import ArticulationCfg, AssetBaseCfg
+import isaaclab.terrains as terrain_gen
+from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.envs import ManagerBasedRLEnvCfg
 from isaaclab.managers import EventTermCfg as EventTerm
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
@@ -14,8 +15,9 @@ from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import RewardTermCfg as RewTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.managers import TerminationTermCfg as DoneTerm
+from isaaclab.managers import CurriculumTermCfg as CurrTerm
 from isaaclab.scene import InteractiveSceneCfg
-from isaaclab.terrains import TerrainImporterCfg
+from isaaclab.terrains import TerrainImporterCfg, TerrainGeneratorCfg
 from isaaclab.sensors.ray_caster import patterns, RayCasterCfg
 from isaaclab.sensors.imu import ImuCfg
 from isaaclab.sensors.contact_sensor import ContactSensorCfg
@@ -43,6 +45,47 @@ LOW_LEVEL_ENV_CFG = Go2BlindWalkEnvCfg()
 # Scene definition
 ##
 
+INITIAL_CONFIG = terrain_gen.MeshRepeatedCylindersTerrainCfg.ObjectCfg(
+    num_objects=1,       
+    height=2.0,         
+    radius=0.6,         
+    max_yx_angle=0.0,    
+)
+
+END_CONFIG = terrain_gen.MeshRepeatedCylindersTerrainCfg.ObjectCfg(
+    num_objects=15,
+    height=2.0,
+    radius=0.2,
+    max_yx_angle=0.0,
+)
+
+TERRAIN_CONFIG = TerrainGeneratorCfg(
+    size=(10.0, 10.0),
+    border_width=20.0,
+    num_cols=10,
+    num_rows=10,
+    curriculum=False,
+    sub_terrains={
+        # Cylinder obstacles: 2m high, 20cm to 1m wide (radius 0.1 to 0.5)
+        "repeated_cylinders": terrain_gen.MeshRepeatedCylindersTerrainCfg(
+            proportion=0.5,
+            abs_height_noise=(0.0,0.0),
+            rel_height_noise=(1.0,1.0),
+            platform_height=0.0,
+            platform_width=1.5,
+            object_params_start=INITIAL_CONFIG,
+            object_params_end=END_CONFIG,
+            flat_patch_sampling={
+                "my_nav_targets": terrain_gen.FlatPatchSamplingCfg(
+                    num_patches=20,
+                    patch_radius=0.6,
+                    max_height_diff=0.05,
+                    z_range=(-0.1, 0.1),
+                )
+            },
+        ),
+    },
+)
 
 @configclass
 class MixedTerrainSceneCfg(InteractiveSceneCfg):
@@ -73,6 +116,21 @@ class MixedTerrainSceneCfg(InteractiveSceneCfg):
         ray_alignment="yaw",
         debug_vis=True,
         mesh_prim_paths=["/World/ground"]
+    )
+
+    range_scanner = RayCasterCfg(
+        prim_path="{ENV_REGEX_NS}/Robot/base",
+        offset=RayCasterCfg.OffsetCfg(pos=(0.0,0.0,0.0), rot=(0.0, 0.0, 0.0, 0.0)),
+        pattern_cfg=patterns.LidarPatternCfg(
+            channels=90,
+            horizontal_fov_range=[0.0, 360.0],
+            horizontal_res=5.0,
+            vertical_fov_range=[-0.0, 60.0],
+        ),
+        debug_vis=True,
+        mesh_prim_paths=['/World/ground'],
+        ray_alignment="yaw",
+        max_distance=3.0
     )
 
     imu = ImuCfg(
@@ -122,9 +180,20 @@ class ObservationsCfg:
         """Observations for policy group."""
 
         # observation terms (order preserved)
-        base_lin_vel = ObsTerm(func=mdp.base_lin_vel)
-        projected_gravity = ObsTerm(func=mdp.projected_gravity)
-        pose_command = ObsTerm(func=mdp.generated_commands, params={"command_name": "pose_command"})
+        base_lin_vel = ObsTerm(
+            func=mdp.base_lin_vel
+        )
+        projected_gravity = ObsTerm(
+            func=mdp.projected_gravity
+        )
+        pose_command = ObsTerm(
+            func=mdp.generated_commands,
+            params={"command_name": "pose_command"}
+        )
+        lidar_scan = ObsTerm(
+            func=mdp.lidar_range_normalized,
+            params={"sensor_cfg": SceneEntityCfg("range_scanner")}
+        )
 
         def __post_init__(self) -> None:
             self.enable_corruption = False
@@ -154,6 +223,11 @@ class EventCfg:
         },
     )
 
+@configclass
+class CurriculumCfg:
+    terrain_levels = CurrTerm(
+        func = mdp.obstacle_terain_levels_vel
+    )
 
 @configclass
 class RewardsCfg:
@@ -175,18 +249,35 @@ class RewardsCfg:
         weight=-0.2,
         params={"command_name": "pose_command"},
     )
+    obstacle_avoidance_reward = RewTerm(
+        func=mdp.obstacle_range_scan_reward,
+        weight=1.0,
+        params={
+            'sensor_cfg': SceneEntityCfg('range_scanner'),
+            'threshold': 1.0
+        }
+    )
+    velocity_towards_progress_reward = RewTerm(
+        func=mdp.track_velocity_to_goal,
+        weight=1.0,
+        params={
+            'command_name': 'pose_command',
+            'asset_name': 'robot'
+        }
+    )
 
 
 @configclass
 class CommandsCfg:
     """Command terms for the MDP."""
 
-    pose_command = mdp.UniformPose2dCommandCfg(
+    pose_command = mdp.TerrainBasedPose2dCommandCfg(
         asset_name="robot",
         simple_heading=False,
         resampling_time_range=(8.0, 8.0),
         debug_vis=True,
-        ranges=mdp.UniformPose2dCommandCfg.Ranges(pos_x=(-3.0, 3.0), pos_y=(-3.0, 3.0), heading=(-math.pi, math.pi)),
+        # ranges=mdp.UniformPose2dCommandCfg.Ranges(pos_x=(-3.0, 3.0), pos_y=(-3.0, 3.0), heading=(-math.pi, math.pi)),
+        ranges=mdp.TerrainBasedPose2dCommandCfg.Ranges(heading=(-math.pi, math.pi))
     )
 
 
@@ -197,7 +288,7 @@ class TerminationsCfg:
     time_out = DoneTerm(func=mdp.time_out, time_out=True)
     base_contact = DoneTerm(
         func=mdp.illegal_contact,
-        params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names="base"), "threshold": 1.0},
+        params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names="base"), "threshold": 10.0},
     )
 
 
