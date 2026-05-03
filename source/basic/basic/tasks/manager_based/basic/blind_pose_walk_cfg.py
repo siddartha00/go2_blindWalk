@@ -1,28 +1,25 @@
-from .basic_env_cfg import TERRAIN_CONFIG
-from .basic_env_cfg import RewardsCfg
-from .basic_env_cfg import CurriculumCfg
-from .basic_env_cfg import ActionsCfg
-from .basic_env_cfg import EventCfg
-from .basic_env_cfg import TerminationsCfg
-from .basic_env_cfg import CommandCfg
+import math
+
 import isaaclab.sim as sim_utils
-from isaaclab.managers import SceneEntityCfg
+from isaaclab.assets import ArticulationCfg, AssetBaseCfg
+from isaaclab.envs import ManagerBasedRLEnvCfg
+from isaaclab.envs.mdp import UniformPose2dCommandCfg
 from isaaclab.managers import ObservationGroupCfg as ObsGroup
 from isaaclab.managers import ObservationTermCfg as ObsTerm
 from isaaclab.managers import RewardTermCfg as RewTerm
-from isaaclab.envs import ManagerBasedRLEnvCfg
-from isaaclab.assets import ArticulationCfg, AssetBaseCfg
-from isaaclab_assets.robots.unitree import UNITREE_GO2_CFG
-from isaaclab.sensors.ray_caster import RayCasterCfg, patterns
+from isaaclab.managers import SceneEntityCfg
+from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.sensors.contact_sensor import ContactSensorCfg
 from isaaclab.sensors.imu import ImuCfg
-from isaaclab.scene import InteractiveSceneCfg
+from isaaclab.sensors.ray_caster import RayCasterCfg, patterns
 from isaaclab.terrains import TerrainImporterCfg
-from isaaclab.utils.noise import AdditiveUniformNoiseCfg as UNoise
 from isaaclab.utils import configclass
-from isaaclab.envs.mdp import UniformPose2dCommandCfg, UniformPose2dCommand
-import math
+from isaaclab.utils.noise import AdditiveUniformNoiseCfg as UNoise
+
+from isaaclab_assets.robots.unitree import UNITREE_GO2_CFG
+
 from . import mdp
+from .basic_env_cfg import TERRAIN_CONFIG, ActionsCfg, CurriculumCfg, EventCfg, TerminationsCfg
 
 
 @configclass
@@ -44,13 +41,12 @@ class MixedTerrainSceneCfg(InteractiveSceneCfg):
     )
 
     # robot
-    # robot: ArticulationCfg = CARTPOLE_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
     robot: ArticulationCfg = UNITREE_GO2_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
 
     height_scanner = RayCasterCfg(
         prim_path="{ENV_REGEX_NS}/Robot/base",
         offset=RayCasterCfg.OffsetCfg(pos=(0.0, 0.0, 20.0)),
-        pattern_cfg=patterns.GridPatternCfg(resolution=0.1, size=[1.6,1.0]),
+        pattern_cfg=patterns.GridPatternCfg(resolution=0.1, size=(1.6,1.0)),
         ray_alignment="yaw",
         debug_vis=True,
         mesh_prim_paths=["/World/ground"]
@@ -91,9 +87,9 @@ class CommandCfg:
         ),
     )
     """Configuration for the 2D-waypoint command generator.
-    
-    This term generates random (x, y) target positions and headings within a 
-    10m x 10m square around the environment origin. It is used to train 
+
+    This term generates random (x, y) target positions and headings within a
+    10m x 10m square around the environment origin. It is used to train
     navigation and obstacle avoidance policies.
     """
 

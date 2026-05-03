@@ -102,6 +102,14 @@ docstring-code-format = true
 
 [tool.pyright]
 
+extraPaths = [
+        "${workspaceFolder}/source/basic",
+        "/home/siddartha/IsaacLab/source/isaaclab",
+        "/home/siddartha/IsaacLab/source/isaaclab_assets",
+        "/home/siddartha/IsaacLab/source/isaaclab_rl",
+        "/home/siddartha/miniconda3/envs/isaacSim/lib/python3.11/site-packages",
+        "/home/siddartha/miniconda3/envs/isaacSim/lib/python3.11/site-packages/isaacsim",
+    ]
 include = ["source", "scripts"]
 exclude = [
     "**/__pycache__",
