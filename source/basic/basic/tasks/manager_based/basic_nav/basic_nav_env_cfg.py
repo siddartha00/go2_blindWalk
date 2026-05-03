@@ -6,6 +6,7 @@
 import math
 
 import isaaclab.sim as sim_utils
+import isaaclab.terrains as terrain_gen
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg
 from isaaclab.envs import ManagerBasedRLEnvCfg
 from isaaclab.managers import EventTermCfg as EventTerm
@@ -15,10 +16,10 @@ from isaaclab.managers import RewardTermCfg as RewTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.managers import TerminationTermCfg as DoneTerm
 from isaaclab.scene import InteractiveSceneCfg
-from isaaclab.terrains import TerrainImporterCfg
-from isaaclab.sensors.ray_caster import patterns, RayCasterCfg
-from isaaclab.sensors.imu import ImuCfg
 from isaaclab.sensors.contact_sensor import ContactSensorCfg
+from isaaclab.sensors.imu import ImuCfg
+from isaaclab.sensors.ray_caster import RayCasterCfg, patterns
+from isaaclab.terrains import TerrainGeneratorCfg, TerrainImporterCfg
 from isaaclab.utils import configclass
 
 from . import mdp
@@ -35,7 +36,6 @@ from isaaclab_assets.robots.unitree import UNITREE_GO2_CFG  # isort:skip
 ##
 
 from ..basic.blind_walk_env_cfg import Go2BlindWalkEnvCfg
-from ..basic.basic_env_cfg import TERRAIN_CONFIG
 
 LOW_LEVEL_ENV_CFG = Go2BlindWalkEnvCfg()
 
@@ -43,6 +43,57 @@ LOW_LEVEL_ENV_CFG = Go2BlindWalkEnvCfg()
 # Scene definition
 ##
 
+TERRAIN_CONFIG = TerrainGeneratorCfg(
+    size=(8.0, 8.0),
+    border_width=20.0,        # meters
+    num_cols=7,
+    num_rows=7,
+    horizontal_scale=0.1,
+    vertical_scale=0.005,
+    slope_threshold=0.75,
+    curriculum=False,
+    sub_terrains={
+        "plane": terrain_gen.MeshPlaneTerrainCfg(proportion=0.05),
+        "rough": terrain_gen.HfRandomUniformTerrainCfg(
+            proportion=0.15,
+            noise_range=(0.0,0.05),
+            noise_step=0.01,
+            downsampled_scale=0.5
+        ),
+        "stairs_up": terrain_gen.MeshInvertedPyramidStairsTerrainCfg(
+            proportion=0.25,
+            step_height_range=(0.04, 0.1),
+            step_width=0.2,
+            platform_width=1.0,
+        ),
+        "stairs_down": terrain_gen.MeshPyramidStairsTerrainCfg(
+            proportion=0.1,
+            step_height_range=(0.04, 0.1),
+            step_width=0.2,
+            platform_width=4.0,
+        ),
+        "discrete_steps": terrain_gen.MeshRandomGridTerrainCfg(
+            proportion=0.15,
+            platform_width=1.0,
+            holes=True,
+            grid_height_range=(0.05, 0.1),
+            grid_width=0.45,
+            flat_patch_sampling={
+                "init_patches":
+            }
+        ),
+        "slope_up": terrain_gen.HfInvertedPyramidSlopedTerrainCfg(
+            proportion=0.05,
+            platform_width=1.0,
+            slope_range=(0.04, 1.0)
+        ),
+        "slope_down": terrain_gen.HfPyramidSlopedTerrainCfg(
+            proportion=0.1,
+            platform_width=1.0,
+            slope_range=(0.04, 1.0)
+        )
+    },
+)
 
 @configclass
 class MixedTerrainSceneCfg(InteractiveSceneCfg):
@@ -69,7 +120,7 @@ class MixedTerrainSceneCfg(InteractiveSceneCfg):
     height_scanner = RayCasterCfg(
         prim_path="{ENV_REGEX_NS}/Robot/base",
         offset=RayCasterCfg.OffsetCfg(pos=(0.0, 0.0, 20.0)),
-        pattern_cfg=patterns.GridPatternCfg(resolution=0.1, size=[1.6,1.0]),
+        pattern_cfg=patterns.GridPatternCfg(resolution=0.1, size=(1.6, 1.0)),
         ray_alignment="yaw",
         debug_vis=True,
         mesh_prim_paths=["/World/ground"]
@@ -106,7 +157,7 @@ class ActionsCfg:
 
     pre_trained_policy_action: mdp.PreTrainedPolicyActionCfg = mdp.PreTrainedPolicyActionCfg(
         asset_name="robot",
-        policy_path=f"logs/rsl_rl/go2_blind_walk/2026-01-10_22-31-18/exported/policy.pt",
+        policy_path="logs/rsl_rl/go2_blind_walk/2026-01-10_22-31-18/exported/policy.pt",
         low_level_decimation=4,
         low_level_actions=LOW_LEVEL_ENV_CFG.actions.joint_pos,
         low_level_observations=LOW_LEVEL_ENV_CFG.observations.policy,
