@@ -8,20 +8,16 @@ import isaaclab.terrains as terrain_gen
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg
 from isaaclab.envs import ManagerBasedRLEnvCfg
 from isaaclab.envs.mdp import UniformVelocityCommandCfg
-from isaaclab.managers import (
-    CommandTermCfg as CommandTerm,
-    EventTermCfg as EventTerm,
-    ObservationGroupCfg as ObsGroup,
-    ObservationTermCfg as ObsTerm,
-    RewardTermCfg as RewTerm,
-    SceneEntityCfg,
-    TerminationTermCfg as DoneTerm,
-    CurriculumTermCfg as CurrTerm
-)
+from isaaclab.managers import CurriculumTermCfg as CurrTerm
+from isaaclab.managers import EventTermCfg as EventTerm
+from isaaclab.managers import ObservationGroupCfg as ObsGroup
+from isaaclab.managers import ObservationTermCfg as ObsTerm
+from isaaclab.managers import RewardTermCfg as RewTerm
+from isaaclab.managers import SceneEntityCfg
+from isaaclab.managers import TerminationTermCfg as DoneTerm
 from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.sensors import RayCasterCfg, patterns
 from isaaclab.sensors.contact_sensor import ContactSensorCfg
-from isaaclab.sensors.imu import ImuCfg
 from isaaclab.terrains import TerrainGeneratorCfg, TerrainImporterCfg
 from isaaclab.utils import configclass
 from isaaclab.utils.noise import AdditiveUniformNoiseCfg as UNoise
@@ -30,7 +26,6 @@ from isaaclab_assets.robots.unitree import UNITREE_GO2_CFG
 
 from . import mdp  # use the standard locomotion mdp helpers from IsaacLab
 
-
 ##
 # Terrain
 ##
@@ -38,11 +33,14 @@ from . import mdp  # use the standard locomotion mdp helpers from IsaacLab
 TERRAIN_CONFIG = TerrainGeneratorCfg(
     size=(8.0, 8.0),
     border_width=20.0,        # meters
-    num_cols=10,
-    num_rows=10,
+    num_cols=7,
+    num_rows=7,
+    horizontal_scale=0.1,
+    vertical_scale=0.005,
+    slope_threshold=0.75,
     curriculum=False,
     sub_terrains={
-        "plane": terrain_gen.MeshPlaneTerrainCfg(proportion=0.15),
+        "plane": terrain_gen.MeshPlaneTerrainCfg(proportion=0.05),
         "rough": terrain_gen.HfRandomUniformTerrainCfg(
             proportion=0.15,
             noise_range=(0.0,0.05),
@@ -50,17 +48,34 @@ TERRAIN_CONFIG = TerrainGeneratorCfg(
             downsampled_scale=0.5
         ),
         "stairs_up": terrain_gen.MeshInvertedPyramidStairsTerrainCfg(
-            proportion=0.45,
+            proportion=0.25,
             step_height_range=(0.04, 0.1),
             step_width=0.2,
             platform_width=1.0,
         ),
         "stairs_down": terrain_gen.MeshPyramidStairsTerrainCfg(
-            proportion=0.25,
+            proportion=0.1,
             step_height_range=(0.04, 0.1),
             step_width=0.2,
             platform_width=4.0,
         ),
+        "discrete_steps": terrain_gen.MeshRandomGridTerrainCfg(
+            proportion=0.15,
+            platform_width=1.0,
+            holes=False,
+            grid_height_range=(0.05, 0.1),
+            grid_width=0.45,
+        ),
+        "slope_up": terrain_gen.HfInvertedPyramidSlopedTerrainCfg(
+            proportion=0.05,
+            platform_width=1.0,
+            slope_range=(0.04, 1.0)
+        ),
+        "slope_down": terrain_gen.HfPyramidSlopedTerrainCfg(
+            proportion=0.1,
+            platform_width=1.0,
+            slope_range=(0.04, 1.0)
+        )
     },
 )
 
@@ -91,7 +106,7 @@ class MixedTerrainSceneCfg(InteractiveSceneCfg):
     height_scanner = RayCasterCfg(
         prim_path="{ENV_REGEX_NS}/Robot/base",
         offset=RayCasterCfg.OffsetCfg(pos=(0.0, 0.0, 20.0)),
-        pattern_cfg=patterns.GridPatternCfg(resolution=0.1, size=[1.6,1.0]),
+        pattern_cfg=patterns.GridPatternCfg(resolution=0.1, size=(1.6,1.0)),
         ray_alignment="yaw",
         debug_vis=True,
         mesh_prim_paths=["/World/ground"]
@@ -121,10 +136,10 @@ class ActionsCfg:
     # Joint position targets (delta from default pose), like Go2 rough env.
     # joint_effort = mdp.JointEffortActionCfg(asset_name="robot", joint_names=["slider_to_cart"], scale=100.0)
     joint_pos = mdp.JointPositionActionCfg(
-        asset_name="robot", 
+        asset_name="robot",
         joint_names=[".*"],
         scale=0.5,
-        use_default_offset=True  # ~±0.5 rad deltas from standing[web:4][web:11] 
+        use_default_offset=True  # ~±0.5 rad deltas from standing[web:4][web:11]
     )
 
 
