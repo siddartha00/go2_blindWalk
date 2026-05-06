@@ -38,12 +38,12 @@ TERRAIN_CONFIG = TerrainGeneratorCfg(
     horizontal_scale=0.1,
     vertical_scale=0.005,
     slope_threshold=0.75,
-    curriculum=False,
+    curriculum=True,
     sub_terrains={
         "plane": terrain_gen.MeshPlaneTerrainCfg(proportion=0.05),
         "rough": terrain_gen.HfRandomUniformTerrainCfg(
             proportion=0.15,
-            noise_range=(0.0,0.05),
+            noise_range=(0.0,0.25),
             noise_step=0.01,
             downsampled_scale=0.5
         ),
@@ -60,21 +60,21 @@ TERRAIN_CONFIG = TerrainGeneratorCfg(
             platform_width=4.0,
         ),
         "discrete_steps": terrain_gen.MeshRandomGridTerrainCfg(
-            proportion=0.15,
+            proportion=0.0,
             platform_width=1.0,
             holes=False,
-            grid_height_range=(0.05, 0.1),
+            grid_height_range=(0.01, 0.10),
             grid_width=0.45,
         ),
         "slope_up": terrain_gen.HfInvertedPyramidSlopedTerrainCfg(
-            proportion=0.05,
+            proportion=0.1,
             platform_width=1.0,
-            slope_range=(0.04, 1.0)
+            slope_range=(0.04, 0.4)
         ),
         "slope_down": terrain_gen.HfPyramidSlopedTerrainCfg(
             proportion=0.1,
             platform_width=1.0,
-            slope_range=(0.04, 1.0)
+            slope_range=(0.04, 0.4)
         )
     },
 )
@@ -316,7 +316,7 @@ class RewardsCfg:
 
     # -- Reward to go at the given velocity
     track_lin_vel_xy_exp = RewTerm(
-        func=mdp.track_lin_vel_xy_exp, weight=3.5, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
+        func=mdp.track_lin_vel_xy_exp, weight=4.0, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
     )
     track_ang_vel_z_exp = RewTerm(
         func=mdp.track_ang_vel_z_exp, weight=2.0, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
@@ -326,7 +326,7 @@ class RewardsCfg:
     lin_vel_z_l2 = RewTerm(func=mdp.lin_vel_z_l2, weight=-2.0) # Penalize vertical bouncing
     ang_vel_xy_l2 = RewTerm(func=mdp.ang_vel_xy_l2, weight=-0.05)
     dof_torques_l2 = RewTerm(func=mdp.joint_torques_l2, weight=-1.0e-5)
-    dof_acc_l2 = RewTerm(func=mdp.joint_acc_l2, weight=-2.5e-7) # Often needs to be higher than 1e-10 to matter
+    dof_acc_l2 = RewTerm(func=mdp.joint_acc_l2, weight=-4.5e-8) # Often needs to be higher than 1e-10 to matter
     action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.01)
 
     feet_air_time = RewTerm(
@@ -350,27 +350,27 @@ class RewardsCfg:
 
     base_height = RewTerm(
         func=mdp.base_height,
-        weight=1.0, # Returns NEGATIVE when below threshold; keep weight positive
+        weight=1.6, # Returns NEGATIVE when below threshold; keep weight positive
         params={
             "sensor_cfg": SceneEntityCfg("height_scanner"),
-            "threshold": 0.3,
+            "threshold": 0.4,
         },
     )
 
     joint_devation = RewTerm(
         func=mdp.joint_deviation_l1,
-        weight=-0.1, # Returns positive deviation; negative weight = penalty
+        weight=-0.2, # Returns positive deviation; negative weight = penalty
         params={"asset_cfg": SceneEntityCfg("robot", joint_names=[".*"])}
     )
 
     flat_orientation_l2 = RewTerm(
         func=mdp.flat_orientation_l2,
-        weight=-1.0 # Penalty for not being flat
+        weight=-0.5 # Penalty for not being flat
     )
 
     body_vel_alignment = RewTerm(
         func=mdp.base_heading_alignment,
-        weight=0.5, # Returns NEGATIVE internally; keep weight positive to penalize
+        weight=0.1, # Returns NEGATIVE internally; keep weight positive to penalize
         params={"asset_cfg": SceneEntityCfg("robot")}
     )
 
