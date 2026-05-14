@@ -52,7 +52,7 @@ During development, I observed that training on `RandomGridMesh` often led to po
 
 ## 📹 Full Demonstration
 
-[![Watch the video](https://img.youtube.com/vi/kZuNFfOwiKg/0.jpg)](https://www.youtube.com/watch?v=kZuNFfOwiKg)
+[![Watch the video](https://img.youtube.com/vi/WDvUrUKvsgQ/0.jpg)](https://www.youtube.com/watch?v=WDvUrUKvsgQ)
 
 *Full range of motion being exercised on 15cm stairs.*
 ---
