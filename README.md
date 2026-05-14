@@ -13,7 +13,7 @@ This project demonstrates a robust RL-based locomotion policy for the Unitree Go
 
 | Rough Terrain (Noise 0.25) | Stairs (Up & Down) | Sloped Terrain |
 |:---:|:---:|:---:|
-| ![Rough Terrain GIF](PLACEHOLDER_ROUGH_TERRAIN_GIF_URL) | ![Stairs GIF](PLACEHOLDER_STAIRS_GIF_URL) | ![Slopes GIF](PLACEHOLDER_SLOPES_GIF_URL) |
+| ![Rough Terrain GIF](demo/rough_terrain.gif) | ![Stairs GIF](demo/steps_incline.gif) | ![Slopes GIF](demo/uphill.gif) |
 
 *The policy utilizes an asymmetric Actor-Critic architecture to handle partial observability during deployment.*
 
@@ -52,10 +52,9 @@ During development, I observed that training on `RandomGridMesh` often led to po
 
 ## 📹 Full Demonstration
 
-![Collage of all terrains](PLACEHOLDER_MAIN_COLLAGE_GIF_URL)
+[![Watch the video](https://img.youtube.com/vi/kZuNFfOwiKg/0.jpg)](https://www.youtube.com/watch?v=kZuNFfOwiKg)
 
 *Full range of motion being exercised on 15cm stairs.*
-
 ---
 
 ## 💻 How to Run
