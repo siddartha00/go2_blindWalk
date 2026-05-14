@@ -66,9 +66,9 @@ python scripts/reinforcement_learning/play.py --task=Template-Isaac-Velocity-Go2
 ```
 
 ## 🔗 Connect with me
-- **LinkedIn:** [Your Profile Link]
-- **Portfolio:** [Your Website Link]
-- **GitHub:** [Your GitHub Link]
+- **LinkedIn:** [Linkedin Profile](https://www.linkedin.com/in/sai-siddartha-alleni)
+<!-- - **Portfolio:** [Your Website Link] -->
+- **GitHub:** [GitHub Profile](https://github.com/siddartha00)
 
 ---
 *Keywords: Reinforcement Learning, Isaac Lab, Robotics, Unitree Go2, Quadruped Locomotion, NVIDIA Isaac Sim.*
